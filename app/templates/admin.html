@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Faculty Admin Panel | Exam Prep Portal{% endblock %}
+
+{% block extra_head %}
+    <style>
+        .admin-header {
+            margin-bottom: 2.5rem;
+        }
+
+        .admin-header h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        .student-table-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 1.5rem;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1.25rem 1.5rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        tr:last-child td { border-bottom: none; }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .score-badge {
+            display: inline-block;
+            padding: 0.4rem 0.8rem;
+            border-radius: 2rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .score-high { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+        .score-med { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        .score-low { background: rgba(239, 68, 68, 0.15); color: var(--error); }
+
+        .loading-text {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 1.25rem;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .summary-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-card .label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="admin-header">
+        <h1>Faculty Admin Panel</h1>
+        <p style="color: var(--text-muted); margin-top: 0.5rem;">Monitor student performance and engagement</p>
+    </div>
+
+    <div class="stats-summary">
+        <div class="summary-card">
+            <span class="value" id="total-students">0</span>
+            <span class="label">Total Students</span>
+        </div>
+        <div class="summary-card">
+            <span class="value" id="avg-class-score">0%</span>
+            <span class="label">Class Average</span>
+        </div>
+        <div class="summary-card">
+            <span class="value" id="total-quizzes-taken">0</span>
+            <span class="label">Quizzes Completed</span>
+        </div>
+    </div>
+
+    <div class="student-table-card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Student Name</th>
+                    <th>Email Address</th>
+                    <th>Quizzes Taken</th>
+                    <th>Average Score</th>
+                    <th>Performance</th>
+                </tr>
+            </thead>
+            <tbody id="student-list">
+                <tr>
+                    <td colspan="5" class="loading-text">Loading student reports...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        async function loadReports() {
+            const token = localStorage.getItem('access_token');
+            try {
+                const res = await fetch('/api/admin/reports', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!res.ok) {
+                    if (res.status === 403) {
+                        alert('Unauthorized. Redirecting to dashboard.');
+                        window.location.href = '/dashboard';
+                    }
+                    return;
+                }
+
+                const data = await res.json();
+                renderReports(data);
+            } catch (err) {
+                console.error('Failed to load admin reports', err);
+            }
+        }
+
+        function renderReports(reports) {
+            const list = document.getElementById('student-list');
+            list.innerHTML = '';
+
+            if (reports.length === 0) {
+                list.innerHTML = '<tr><td colspan="5" class="loading-text">No student data available yet.</td></tr>';
+                return;
+            }
+
+            let totalScore = 0;
+            let totalQuizzes = 0;
+
+            reports.forEach(r => {
+                totalScore += r.avg_score;
+                totalQuizzes += r.total_quizzes;
+
+                const scoreClass = r.avg_score >= 80 ? 'score-high' : (r.avg_score >= 50 ? 'score-med' : 'score-low');
+                const performance = r.avg_score >= 80 ? 'Excellent' : (r.avg_score >= 50 ? 'Steady' : 'Needs Focus');
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${r.username}</td>
+                    <td style="color: var(--text-muted);">${r.email}</td>
+                    <td>${r.total_quizzes}</td>
+                    <td>
+                        <span class="score-badge ${scoreClass}">${r.avg_score}%</span>
+                    </td>
+                    <td style="color: var(--text-muted); font-size: 0.9rem;">${performance}</td>
+                `;
+                list.appendChild(tr);
+            });
+
+            // Update summary
+            document.getElementById('total-students').textContent = reports.length;
+            document.getElementById('avg-class-score').textContent = Math.round(totalScore / reports.length) + '%';
+            document.getElementById('total-quizzes-taken').textContent = totalQuizzes;
+        }
+
+        window.addEventListener('load', loadReports);
+    </script>
+{% endblock %}

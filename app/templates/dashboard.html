@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Exam Prep Portal{% endblock %}
+
+{% block extra_head %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .welcome-section {
+            margin-bottom: 2rem;
+        }
+
+        .welcome-section h1 {
+            font-size: 2.2rem;
+            margin: 0;
+        }
+
+        .welcome-section p {
+            color: var(--text-muted);
+            margin: 0.5rem 0 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 1.25rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin: 0.5rem 0;
+            color: var(--text);
+        }
+
+        .stat-sub {
+            font-size: 0.85rem;
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .chart-container {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 1.25rem;
+            border: 1px solid var(--border);
+            min-height: 350px;
+        }
+
+        .chart-container h3 {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            font-weight: 400;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="welcome-section">
+        <h1>Hi, <span id="username-display">Student</span> 👋</h1>
+        <p>Here's how you're performing so far.</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Average Score</div>
+            <div class="stat-value" id="avg-score">0%</div>
+            <div class="stat-sub">Keep pushing!</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Best Subject</div>
+            <div class="stat-value" id="best-subject">-</div>
+            <div class="stat-sub">Highest Performance</div>
+        </div>
+    </div>
+
+    <div class="charts-grid">
+        <div class="chart-container">
+            <h3>Score Improvement Trend</h3>
+            <canvas id="lineChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>Performance by Subject</h3>
+            <canvas id="barChart"></canvas>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        const usernameDisplay = document.getElementById('username-display');
+        const avgScoreDisplay = document.getElementById('avg-score');
+        const bestSubjectDisplay = document.getElementById('best-subject');
+
+        async function initDashboard() {
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+
+            try {
+                // Fetch Overview Data
+                const overviewRes = await fetch('/api/analytics/overview', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const overview = await overviewRes.json();
+                
+                // currentUser is set in session.js
+                if (window.currentUser) {
+                    usernameDisplay.textContent = window.currentUser.username;
+                }
+                
+                avgScoreDisplay.textContent = `${overview.avg_score}%`;
+                bestSubjectDisplay.textContent = overview.best_subject || '-';
+
+                // Load Charts
+                loadTimelineChart(token);
+                loadPerformanceChart(token);
+
+            } catch (err) {
+                console.error('Dashboard data load failed', err);
+            }
+        }
+
+        async function loadTimelineChart(token) {
+            const res = await fetch('/api/analytics/timeline', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+
+            const ctx = document.getElementById('lineChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(item => item.date),
+                    datasets: [{
+                        label: 'Score %',
+                        data: data.map(item => item.score),
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#6366f1',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            max: 100,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: { 
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadPerformanceChart(token) {
+            const res = await fetch('/api/analytics/subject-performance', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+
+            const ctx = document.getElementById('barChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(item => item.subject),
+                    datasets: [{
+                        label: 'Percentage %',
+                        data: data.map(item => item.score),
+                        backgroundColor: [
+                            'rgba(99, 102, 241, 0.8)',
+                            'rgba(192, 132, 252, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(245, 158, 11, 0.8)'
+                        ],
+                        borderRadius: 8,
+                        barThickness: 40
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            max: 100,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: { 
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Wait for session.js to finish initialization
+        window.addEventListener('load', () => {
+            initDashboard();
+        });
+    </script>
+{% endblock %}
