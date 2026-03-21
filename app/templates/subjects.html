@@ -298,11 +298,16 @@
                             <span>📚 ${s.topics_count} Topics</span>
                         </div>
                         <div class="actions-row">
-                            <button class="btn btn-primary" style="flex: 1;" onclick="viewTopics(${s.id}, '${s.name.replace(/'/g, "\\'")}')">View</button>
-                            <button class="btn btn-outline" onclick="editSubject(${s.id}, '${s.name.replace(/'/g, "\\'")}', '${(s.description || '').replace(/'/g, "\\'")}')">Edit</button>
-                            <button class="btn btn-danger" onclick="deleteSubject(${s.id})">Delete</button>
+                            <button class="btn btn-primary btn-view" style="flex: 1;" data-id="${s.id}" data-name="${s.name}">View</button>
+                            <button class="btn btn-outline btn-edit" data-id="${s.id}" data-name="${s.name}" data-desc="${s.description || ''}">Edit</button>
+                            <button class="btn btn-danger btn-delete" data-id="${s.id}">Delete</button>
                         </div>
                     `;
+                    
+                    card.querySelector('.btn-view').onclick = () => viewTopics(s.id, s.name);
+                    card.querySelector('.btn-edit').onclick = () => editSubject(s.id, s.name, s.description || '');
+                    card.querySelector('.btn-delete').onclick = () => deleteSubject(s.id);
+                    
                     container.appendChild(card);
                 });
             } catch (err) {
@@ -311,6 +316,7 @@
         }
 
         async function viewTopics(subjectId, name) {
+            console.log('viewTopics called', subjectId, name);
             currentSubjectId = subjectId;
             document.getElementById('subjects-view').style.display = 'none';
             document.getElementById('topics-section').style.display = 'block';
@@ -334,11 +340,16 @@
                         </div>
                         <div class="actions-row">
                             ${t.notes_url ? `<a href="${t.notes_url}" target="_blank" class="btn btn-outline" style="color: var(--success); border-color: var(--success);">📄 Notes</a>` : ''}
-                            <button class="btn btn-primary" onclick="startQuiz(${t.id})">🎯 Start Quiz</button>
-                            <button class="btn btn-outline" onclick="editTopic(${t.id}, '${t.name.replace(/'/g, "\\'")}', '${(t.content || '').replace(/'/g, "\\'")}', '${t.notes_url || ''}')">Edit</button>
-                            <button class="btn btn-danger" onclick="deleteTopic(${t.id})">Delete</button>
+                            <button class="btn btn-primary btn-start-quiz" data-id="${t.id}">🎯 Start Quiz</button>
+                            <button class="btn btn-outline btn-edit-topic" data-id="${t.id}" data-name="${t.name}" data-content="${t.content || ''}" data-notes="${t.notes_url || ''}">Edit</button>
+                            <button class="btn btn-danger btn-delete-topic" data-id="${t.id}">Delete</button>
                         </div>
                     `;
+                    
+                    item.querySelector('.btn-start-quiz').onclick = () => startQuiz(t.id);
+                    item.querySelector('.btn-edit-topic').onclick = () => editTopic(t.id, t.name, t.content || '', t.notes_url || '');
+                    item.querySelector('.btn-delete-topic').onclick = () => deleteTopic(t.id);
+                    
                     container.appendChild(item);
                 });
             } catch (err) {
@@ -347,12 +358,13 @@
         }
 
         // Subject actions
-        document.getElementById('add-subject-btn').onclick = () => {
+        document.getElementById('add-subject-btn').addEventListener('click', () => {
+            console.log('Add Subject clicked');
             document.getElementById('modal-title').textContent = 'Add Subject';
             document.getElementById('edit-subject-id').value = '';
             document.getElementById('subject-form').reset();
             openModal('subject-modal');
-        };
+        });
 
         function editSubject(id, name, desc) {
             document.getElementById('modal-title').textContent = 'Edit Subject';
@@ -378,24 +390,30 @@
             const description = document.getElementById('subject-desc').value;
             const url = id ? `/api/subjects/${id}` : '/api/subjects/';
             const method = id ? 'PUT' : 'POST';
-            await fetch(url, {
+            
+            const res = await fetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ name, description })
             });
-            closeModal('subject-modal');
-            loadSubjects();
+            
+            if (res.ok) {
+                closeModal('subject-modal');
+                loadSubjects();
+            } else {
+                alert('Error saving subject');
+            }
         };
 
         // Topic actions
-        document.getElementById('add-topic-btn').onclick = () => {
+        document.getElementById('add-topic-btn').addEventListener('click', () => {
             document.getElementById('topic-modal-title').textContent = 'Add Topic';
             document.getElementById('edit-topic-id').value = '';
             document.getElementById('topic-subject-id').value = currentSubjectId;
             document.getElementById('topic-form').reset();
             document.getElementById('current-file-info').style.display = 'none';
             openModal('topic-modal');
-        };
+        });
 
         function editTopic(id, name, content, notes_url) {
             document.getElementById('topic-modal-title').textContent = 'Edit Topic';
@@ -450,10 +468,10 @@
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        document.getElementById('back-to-subjects').onclick = () => {
+        document.getElementById('back-to-subjects').addEventListener('click', () => {
             document.getElementById('subjects-view').style.display = 'block';
             document.getElementById('topics-section').style.display = 'none';
-        };
+        });
 
         window.addEventListener('load', loadSubjects);
     </script>

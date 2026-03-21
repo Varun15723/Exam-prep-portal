@@ -78,6 +78,17 @@ class Quiz(db.Model):
     quiz_data = db.Column(db.JSON, nullable=False) # Stores questions, user answers, and explanations
     created_at = db.Column(db.DateTime, default=db.func.now())
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'topic_id': self.topic_id,
+            'score': self.score,
+            'total_questions': self.total_questions,
+            'quiz_data': self.quiz_data,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
 class StudyPlan(db.Model):
     __tablename__ = 'study_plans'
     

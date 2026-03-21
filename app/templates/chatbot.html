@@ -380,14 +380,17 @@
         // Handle Topic Selection
         topicSelect.addEventListener('change', async (e) => {
             currentTopicId = e.target.value;
+            console.log('Topic changed to:', currentTopicId);
             if (currentTopicId) {
                 chatInput.disabled = false;
                 sendBtn.disabled = false;
+                chatInput.placeholder = "Type your question here...";
                 emptyState.style.display = 'none';
                 await loadChatHistory(currentTopicId);
             } else {
                 chatInput.disabled = true;
                 sendBtn.disabled = true;
+                chatInput.placeholder = "Select a topic first...";
                 emptyState.style.display = 'flex';
                 chatWindow.innerHTML = '';
                 chatWindow.appendChild(emptyState);
@@ -396,15 +399,21 @@
 
         // Load Chat History
         async function loadChatHistory(topicId) {
-            chatWindow.innerHTML = '';
+            console.log('Loading history for topic:', topicId);
+            chatWindow.innerHTML = '<p style="text-align: center; color: var(--text-muted);">Loading history...</p>';
             try {
                 const response = await fetch(`/api/chatbot/history?topic_id=${topicId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const history = await response.json();
                 
+                chatWindow.innerHTML = '';
+                if (history.length === 0) {
+                    chatWindow.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 1rem;">No previous conversation for this topic.</p>';
+                }
+
                 // History comes in desc order (newest first), let's reverse for display
-                history.reverse().forEach(entry => {
+                [...history].reverse().forEach(entry => {
                     addMessage(entry.question, 'user', entry.created_at);
                     addMessage(entry.answer, 'ai', entry.created_at);
                 });
@@ -412,6 +421,7 @@
                 scrollToBottom();
             } catch (error) {
                 console.error('Error loading history:', error);
+                chatWindow.innerHTML = '<p style="text-align: center; color: var(--error);">Failed to load history.</p>';
             }
         }
 
@@ -420,6 +430,7 @@
             const question = chatInput.value.trim();
             if (!question || !currentTopicId) return;
 
+            console.log('Sending question:', question);
             // Add user message to UI
             addMessage(question, 'user');
             chatInput.value = '';
@@ -477,7 +488,11 @@
         }
 
         // Event Listeners
-        sendBtn.addEventListener('click', sendMessage);
+        sendBtn.addEventListener('click', () => {
+            console.log('Send button clicked');
+            sendMessage();
+        });
+        
         chatInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

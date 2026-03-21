@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch, MagicMock
 from app import create_app, db
 from config import Config
 
@@ -34,3 +35,16 @@ def auth_headers(client):
     })
     token = response.get_json()['access_token']
     return {'Authorization': f'Bearer {token}'}
+
+@pytest.fixture
+def mock_genai():
+    with patch('google.generativeai.configure'), \
+         patch('google.generativeai.GenerativeModel') as mock_model:
+        
+        # Configure the mock model's generate_content method
+        instance = mock_model.return_value
+        mock_response = MagicMock()
+        mock_response.text = '{"questions": [], "plan": [], "answer": "Mocked answer"}'
+        instance.generate_content.return_value = mock_response
+        
+        yield instance

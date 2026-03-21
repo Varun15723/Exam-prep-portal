@@ -160,13 +160,19 @@
                 <div class="empty-state">
                     <h3>Ready to ace your exams?</h3>
                     <p>${message} Take a few quizzes so we can identify your weak areas.</p>
-                    <button class="btn btn-primary" onclick="showModal()">Create My First Plan</button>
+                    <button class="btn btn-primary" id="create-first-plan-btn">Create My First Plan</button>
                 </div>
             `;
+            const btn = document.getElementById('create-first-plan-btn');
+            if (btn) btn.onclick = showModal;
             examDateDisplay.textContent = '';
         }
 
         function renderPlan(data) {
+            if (!data || !data.plan_data || !data.plan_data.plan) {
+                renderEmptyState('Plan data is malformed.');
+                return;
+            }
             const plan = data.plan_data.plan;
             examDateDisplay.textContent = `Exam Date: ${new Date(data.exam_date).toDateString()}`;
             let html = '<div class="planner-grid">';
@@ -180,7 +186,7 @@
                         </div>
                         <div class="focus-topic ${colorClass}">${day.focus}</div>
                         <ul class="activities-list">
-                            ${day.activities.map(act => `<li class="activity-item">${act}</li>`).join('')}
+                            ${(day.activities || []).map(act => `<li class="activity-item">${act}</li>`).join('')}
                         </ul>
                     </div>
                 `;
@@ -189,8 +195,12 @@
             plannerContent.innerHTML = html;
         }
 
-        function showModal() { modalOverlay.style.display = 'flex'; }
-        generateBtn.onclick = showModal;
+        function showModal() { 
+            console.log('Showing planner modal');
+            modalOverlay.style.display = 'flex'; 
+        }
+        
+        generateBtn.addEventListener('click', showModal);
         closeModal.onclick = () => modalOverlay.style.display = 'none';
 
         generateForm.onsubmit = async (e) => {
